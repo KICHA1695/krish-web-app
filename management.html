@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus College | Secure ERP</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root { --primary-dark: #1a252f; --accent: #3498db; }
+        body { background-color: #f4f7f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+        
+        /* Login Overlay Styles */
+        #loginOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #1a252f 0%, #34495e 100%);
+            display: flex; align-items: center; justify-content: center; z-index: 9999;
+        }
+        .login-card { width: 100%; max-width: 400px; border-radius: 15px; overflow: hidden; }
+
+        /* Main UI Styles */
+        .navbar { background-color: var(--primary-dark) !important; border-bottom: 4px solid var(--accent); }
+        .card { border-radius: 12px; border: none; box-shadow: 0 8px 24px rgba(0,0,0,0.05); }
+        .nav-pills .nav-link { color: #666; font-weight: 500; transition: 0.3s; margin-right: 5px; }
+        .nav-pills .nav-link.active { background-color: var(--accent); color: white; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="loginOverlay">
+    <div class="card login-card shadow-lg">
+        <div class="card-body p-4 p-md-5">
+            <div class="text-center mb-4">
+                <i class="bi bi-shield-lock-fill text-primary" style="font-size: 3rem;"></i>
+                <h3 class="fw-bold mt-2">Nexus Portal</h3>
+                <p class="text-muted small">Authorized Access Only</p>
+            </div>
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Select Role</label>
+                    <select id="loginRole" class="form-select" required>
+                        <option value="" selected disabled>Choose Role...</option>
+                        <option value="Admin">System Admin</option>
+                        <option value="Principal">Principal</option>
+                        <option value="HOD">Head of Department (HOD)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Password</label>
+                    <input type="password" id="loginPass" class="form-control" placeholder="Enter password" required>
+                    <div class="form-text text-danger d-none" id="loginError">Invalid credentials for this role.</div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Login to Dashboard</button>
+            </form>
+            <div class="mt-4 text-center">
+                <p class="text-muted x-small">Hint: Password is <strong>admin123</strong></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="mainContent" class="hidden">
+    <nav class="navbar navbar-dark mb-4 p-3">
+        <div class="container">
+            <span class="navbar-brand fw-bold"><i class="bi bi-mortarboard-fill me-2"></i>Nexus ERP</span>
+            <div class="d-flex align-items-center">
+                <span id="userBadge" class="badge bg-accent me-3 border"></span>
+                <button class="btn btn-light btn-sm me-2" onclick="openModal('add')"><i class="bi bi-person-plus"></i> Add Entry</button>
+                <button class="btn btn-outline-light btn-sm me-2" onclick="generatePDF()"><i class="bi bi-download"></i> PDF</button>
+                <button class="btn btn-danger btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card mb-4">
+            <div class="card-body p-2">
+                <ul class="nav nav-pills nav-fill" id="roleTab" role="tablist"></ul>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div class="input-group input-group-lg shadow-sm">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="searchInput" class="form-control border-start-0" placeholder="Search records...">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">No.</th>
+                            <th>Basic Info</th>
+                            <th>Department/Assignment</th>
+                            <th>Contact</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="entryModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="entryForm" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalTitle">Add Entry</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="editId">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Full Name</label>
+                    <input type="text" id="formName" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold" id="deptLabel">Department</label>
+                    <input type="text" id="formDept" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Email</label>
+                    <input type="email" id="formEmail" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary w-100">Save Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+/** 1. AUTHENTICATION LOGIC **/
+const CREDENTIALS = {
+    "Admin": "admin123",
+    "Principal": "admin123",
+    "HOD": "admin123"
+};
+
+document.getElementById('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const role = document.getElementById('loginRole').value;
+    const pass = document.getElementById('loginPass').value;
+    const errorMsg = document.getElementById('loginError');
+
+    if (CREDENTIALS[role] === pass) {
+        sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('userRole', role);
+        initDashboard();
+    } else {
+        errorMsg.classList.remove('d-none');
+        document.getElementById('loginPass').value = '';
+    }
+});
+
+function logout() {
+    sessionStorage.clear();
+    location.reload();
+}
+
+/** 2. DASHBOARD LOGIC **/
+const ROLES = ['Student', 'Teacher', 'HOD', 'Worker', 'Bus Driver', 'Watchman', 'Bodyguard'];
+let db = {};
+let currentRole = 'Student';
+const modal = new bootstrap.Modal(document.getElementById('entryModal'));
+const API_URL = 'https://jsonplaceholder.typicode.com/users';
+
+function initDashboard() {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('mainContent').classList.remove('hidden');
+    document.getElementById('userBadge').innerText = `Logged in as: ${sessionStorage.getItem('userRole')}`;
+    
+    initTabs();
+    loadData();
+}
+
+// Check session on page load
+window.onload = () => {
+    if (sessionStorage.getItem('isLoggedIn') === 'true') initDashboard();
+};
+
+/** 3. DATA & UI LOGIC **/
+function initTabs() {
+    const tabContainer = document.getElementById('roleTab');
+    tabContainer.innerHTML = '';
+    ROLES.forEach((role, idx) => {
+        tabContainer.innerHTML += `
+            <li class="nav-item">
+                <button class="nav-link ${idx === 0 ? 'active' : ''}" 
+                        onclick="switchRole('${role}')" 
+                        data-bs-toggle="pill" type="button">${role}s</button>
+            </li>
+        `;
+    });
+}
+
+async function loadData() {
+    const saved = localStorage.getItem('college_db_v3');
+    if (saved) {
+        db = JSON.parse(saved);
+    } else {
+        ROLES.forEach(r => db[r] = []);
+        try {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            data.forEach((user, i) => {
+                const r = ROLES[i % ROLES.length];
+                db[r].push({ id: Date.now() + Math.random(), name: user.name, dept: user.company.name, email: user.email });
+            });
+            save();
+        } catch (e) { console.error(e); }
+    }
+    renderTable();
+}
+
+function switchRole(role) {
+    currentRole = role;
+    renderTable();
+}
+
+function renderTable(query = "") {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    const list = (db[currentRole] || []).filter(i => 
+        i.name.toLowerCase().includes(query.toLowerCase()) || 
+        i.dept.toLowerCase().includes(query.toLowerCase())
+    );
+
+    list.forEach((item, idx) => {
+        tbody.innerHTML += `
+            <tr>
+                <td class="ps-4 text-muted">${idx + 1}</td>
+                <td><div class="fw-bold">${item.name}</div><div class="small text-muted">${currentRole}</div></td>
+                <td><span class="badge bg-primary-subtle text-primary">${item.dept}</span></td>
+                <td>${item.email}</td>
+                <td class="text-end pe-4">
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="openModal('edit', ${item.id})"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteEntry(${item.id})"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+/** 4. ACTIONS **/
+function openModal(mode, id = null) {
+    document.getElementById('entryForm').reset();
+    document.getElementById('editId').value = id || '';
+    document.getElementById('modalTitle').innerText = `${mode === 'edit' ? 'Edit' : 'New'} ${currentRole}`;
+    
+    if (mode === 'edit') {
+        const item = db[currentRole].find(i => i.id === id);
+        document.getElementById('formName').value = item.name;
+        document.getElementById('formDept').value = item.dept;
+        document.getElementById('formEmail').value = item.email;
+    }
+    modal.show();
+}
+
+document.getElementById('entryForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editId').value;
+    const entry = {
+        id: id ? parseFloat(id) : Date.now(),
+        name: document.getElementById('formName').value,
+        dept: document.getElementById('formDept').value,
+        email: document.getElementById('formEmail').value
+    };
+
+    if (id) {
+        const idx = db[currentRole].findIndex(i => i.id === parseFloat(id));
+        db[currentRole][idx] = entry;
+    } else {
+        db[currentRole].push(entry);
+    }
+    save(); renderTable(); modal.hide();
+});
+
+function deleteEntry(id) {
+    if(confirm("Delete record?")) {
+        db[currentRole] = db[currentRole].filter(i => i.id !== id);
+        save(); renderTable();
+    }
+}
+
+function save() { localStorage.setItem('college_db_v3', JSON.stringify(db)); }
+
+document.getElementById('searchInput').addEventListener('input', (e) => renderTable(e.target.value));
+
+function generatePDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.text(`Nexus College - ${currentRole} Report`, 14, 20);
+    const body = db[currentRole].map((item, idx) => [idx + 1, item.name, item.dept, item.email]);
+    doc.autoTable({ startY: 30, head: [['#', 'Name', 'Dept', 'Email']], body: body });
+    doc.save(`${currentRole}_Report.pdf`);
+}
+</script>
+</body>
+</html>
