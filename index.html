@@ -25,9 +25,19 @@
         /* Main UI Styles */
         .navbar { background-color: var(--primary-dark) !important; border-bottom: 4px solid var(--accent); }
         .card { border-radius: 12px; border: none; box-shadow: 0 8px 24px rgba(0,0,0,0.05); }
-        .nav-pills .nav-link { color: #666; font-weight: 500; transition: 0.3s; margin-right: 5px; }
+        .nav-pills .nav-link { color: #666; font-weight: 500; transition: 0.3s; margin-right: 5px; white-space: nowrap; }
         .nav-pills .nav-link.active { background-color: var(--accent); color: white; }
         .hidden { display: none !important; }
+
+        /* Media Queries for Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .navbar-brand { font-size: 1.1rem; }
+            #userBadge { display: none; }
+            .hide-mobile { display: none; }
+            .nav-pills { flex-wrap: nowrap; overflow-x: auto; display: flex; -webkit-overflow-scrolling: touch; }
+            .nav-item { flex: 0 0 auto; }
+            .container { padding-left: 10px; padding-right: 10px; }
+        }
     </style>
 </head>
 <body>
@@ -70,8 +80,8 @@
             <span class="navbar-brand fw-bold"><i class="bi bi-mortarboard-fill me-2"></i>Nexus ERP</span>
             <div class="d-flex align-items-center">
                 <span id="userBadge" class="badge bg-accent me-3 border"></span>
-                <button class="btn btn-light btn-sm me-2" onclick="openModal('add')"><i class="bi bi-person-plus"></i> Add Entry</button>
-                <button class="btn btn-outline-light btn-sm me-2" onclick="generatePDF()"><i class="bi bi-download"></i> PDF</button>
+                <button class="btn btn-light btn-sm me-2" onclick="openModal('add')"><i class="bi bi-person-plus"></i> <span class="hide-mobile">Add Entry</span></button>
+                <button class="btn btn-outline-light btn-sm me-2" onclick="generatePDF()"><i class="bi bi-download"></i> <span class="hide-mobile">PDF</span></button>
                 <button class="btn btn-danger btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i></button>
             </div>
         </div>
@@ -99,9 +109,10 @@
                     <thead class="bg-light">
                         <tr>
                             <th class="ps-4">No.</th>
-                            <th>Basic Info</th>
-                            <th>Department/Assignment</th>
-                            <th>Contact</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th class="hide-mobile">Email</th>
+                            <th>Mobile</th>
                             <th class="text-end pe-4">Actions</th>
                         </tr>
                     </thead>
@@ -126,12 +137,16 @@
                     <input type="text" id="formName" class="form-control" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold" id="deptLabel">Department</label>
-                    <input type="text" id="formDept" class="form-control" required>
+                    <label class="form-label small fw-bold">Department</label>
+                    <input type="text" id="formDept" class="form-control" placeholder="e.g. Science" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">Email</label>
+                    <label class="form-label small fw-bold">Email Address</label>
                     <input type="email" id="formEmail" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Mobile Number</label>
+                    <input type="tel" id="formPhone" class="form-control" required>
                 </div>
             </div>
             <div class="modal-footer">
@@ -145,81 +160,68 @@
 
 <script>
 /** 1. AUTHENTICATION LOGIC **/
-const CREDENTIALS = {
-    "Admin": "admin123",
-    "Principal": "admin123",
-    "HOD": "admin123"
-};
+const CREDENTIALS = { "Admin": "admin123", "Principal": "admin123", "HOD": "admin123" };
 
 document.getElementById('loginForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const role = document.getElementById('loginRole').value;
     const pass = document.getElementById('loginPass').value;
-    const errorMsg = document.getElementById('loginError');
-
     if (CREDENTIALS[role] === pass) {
         sessionStorage.setItem('isLoggedIn', 'true');
         sessionStorage.setItem('userRole', role);
         initDashboard();
     } else {
-        errorMsg.classList.remove('d-none');
+        document.getElementById('loginError').classList.remove('d-none');
         document.getElementById('loginPass').value = '';
     }
 });
 
-function logout() {
-    sessionStorage.clear();
-    location.reload();
-}
+function logout() { sessionStorage.clear(); location.reload(); }
 
 /** 2. DASHBOARD LOGIC **/
 const ROLES = ['Student', 'Teacher', 'HOD', 'Worker', 'Bus Driver', 'Watchman', 'Bodyguard'];
 let db = {};
 let currentRole = 'Student';
 const modal = new bootstrap.Modal(document.getElementById('entryModal'));
-const API_URL = 'https://jsonplaceholder.typicode.com/users';
 
 function initDashboard() {
     document.getElementById('loginOverlay').classList.add('hidden');
     document.getElementById('mainContent').classList.remove('hidden');
     document.getElementById('userBadge').innerText = `Logged in as: ${sessionStorage.getItem('userRole')}`;
-    
     initTabs();
     loadData();
 }
 
-// Check session on page load
-window.onload = () => {
-    if (sessionStorage.getItem('isLoggedIn') === 'true') initDashboard();
-};
+window.onload = () => { if (sessionStorage.getItem('isLoggedIn') === 'true') initDashboard(); };
 
-/** 3. DATA & UI LOGIC **/
 function initTabs() {
     const tabContainer = document.getElementById('roleTab');
     tabContainer.innerHTML = '';
     ROLES.forEach((role, idx) => {
-        tabContainer.innerHTML += `
-            <li class="nav-item">
-                <button class="nav-link ${idx === 0 ? 'active' : ''}" 
-                        onclick="switchRole('${role}')" 
-                        data-bs-toggle="pill" type="button">${role}s</button>
-            </li>
-        `;
+        tabContainer.innerHTML += `<li class="nav-item">
+            <button class="nav-link ${idx === 0 ? 'active' : ''}" onclick="switchRole('${role}')" data-bs-toggle="pill" type="button">${role}s</button>
+        </li>`;
     });
 }
 
 async function loadData() {
-    const saved = localStorage.getItem('college_db_v3');
+    const saved = localStorage.getItem('college_db_v6');
     if (saved) {
         db = JSON.parse(saved);
     } else {
         ROLES.forEach(r => db[r] = []);
         try {
-            const res = await fetch(API_URL);
+            const res = await fetch('https://jsonplaceholder.typicode.com/users');
             const data = await res.json();
             data.forEach((user, i) => {
                 const r = ROLES[i % ROLES.length];
-                db[r].push({ id: Date.now() + Math.random(), name: user.name, dept: user.company.name, email: user.email });
+                db[r].push({ 
+                    id: Date.now() + Math.random(), 
+                    name: user.name, 
+                    dept: 'General', 
+                    email: user.email, 
+                    phone: user.phone 
+                });
             });
             save();
         } catch (e) { console.error(e); }
@@ -227,36 +229,34 @@ async function loadData() {
     renderTable();
 }
 
-function switchRole(role) {
-    currentRole = role;
-    renderTable();
-}
+function switchRole(role) { currentRole = role; renderTable(); }
 
 function renderTable(query = "") {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
     const list = (db[currentRole] || []).filter(i => 
         i.name.toLowerCase().includes(query.toLowerCase()) || 
-        i.dept.toLowerCase().includes(query.toLowerCase())
+        i.dept.toLowerCase().includes(query.toLowerCase()) ||
+        i.email.toLowerCase().includes(query.toLowerCase()) ||
+        i.phone.includes(query)
     );
 
     list.forEach((item, idx) => {
         tbody.innerHTML += `
             <tr>
                 <td class="ps-4 text-muted">${idx + 1}</td>
-                <td><div class="fw-bold">${item.name}</div><div class="small text-muted">${currentRole}</div></td>
+                <td class="fw-bold">${item.name}</td>
                 <td><span class="badge bg-primary-subtle text-primary">${item.dept}</span></td>
-                <td>${item.email}</td>
+                <td class="hide-mobile small text-muted">${item.email}</td>
+                <td class="small fw-bold">${item.phone}</td>
                 <td class="text-end pe-4">
                     <button class="btn btn-sm btn-outline-secondary me-1" onclick="openModal('edit', ${item.id})"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteEntry(${item.id})"><i class="bi bi-trash"></i></button>
                 </td>
-            </tr>
-        `;
+            </tr>`;
     });
 }
 
-/** 4. ACTIONS **/
 function openModal(mode, id = null) {
     document.getElementById('entryForm').reset();
     document.getElementById('editId').value = id || '';
@@ -267,6 +267,7 @@ function openModal(mode, id = null) {
         document.getElementById('formName').value = item.name;
         document.getElementById('formDept').value = item.dept;
         document.getElementById('formEmail').value = item.email;
+        document.getElementById('formPhone').value = item.phone;
     }
     modal.show();
 }
@@ -278,7 +279,8 @@ document.getElementById('entryForm').addEventListener('submit', (e) => {
         id: id ? parseFloat(id) : Date.now(),
         name: document.getElementById('formName').value,
         dept: document.getElementById('formDept').value,
-        email: document.getElementById('formEmail').value
+        email: document.getElementById('formEmail').value,
+        phone: document.getElementById('formPhone').value
     };
 
     if (id) {
@@ -297,7 +299,7 @@ function deleteEntry(id) {
     }
 }
 
-function save() { localStorage.setItem('college_db_v3', JSON.stringify(db)); }
+function save() { localStorage.setItem('college_db_v6', JSON.stringify(db)); }
 
 document.getElementById('searchInput').addEventListener('input', (e) => renderTable(e.target.value));
 
@@ -305,8 +307,12 @@ function generatePDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     doc.text(`Nexus College - ${currentRole} Report`, 14, 20);
-    const body = db[currentRole].map((item, idx) => [idx + 1, item.name, item.dept, item.email]);
-    doc.autoTable({ startY: 30, head: [['#', 'Name', 'Dept', 'Email']], body: body });
+    const body = db[currentRole].map((item, idx) => [idx + 1, item.name, item.dept, item.email, item.phone]);
+    doc.autoTable({ 
+        startY: 30, 
+        head: [['#', 'Name', 'Department', 'Email', 'Mobile']], 
+        body: body 
+    });
     doc.save(`${currentRole}_Report.pdf`);
 }
 </script>
